@@ -544,3 +544,16 @@
 .main-sidebar .sidebar-menu > li.menu-cat-header:hover .menu-cat-toggle {
     color: #1f4c74;
 }
+
+/* ===== v2：侧边栏加宽（230 → 264），避免分类/子项标题被裁 ===== */
+@media (min-width: 768px) {
+    .main-sidebar, .left-side { width: 264px; }
+    .main-header .logo { width: 264px; }
+    .main-header > .navbar { margin-left: 264px; }
+    .content-wrapper, .right-side, .main-footer { margin-left: 264px; }
+    .sidebar-collapse .main-sidebar, .sidebar-collapse .left-side { transform: translate(-264px, 0); }
+}
+@media (max-width: 767px) {
+    .main-sidebar, .left-side { transform: translate(-264px, 0); }
+    .sidebar-open .content-wrapper, .sidebar-open .right-side, .sidebar-open .main-footer { transform: translate(264px, 0); }
+}
