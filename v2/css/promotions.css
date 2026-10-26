@@ -437,6 +437,7 @@
 .main-sidebar {
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;               /* 不出现左右滑动条 */
 }
 .main-sidebar .sidebar {
     display: flex;
@@ -450,6 +451,7 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;               /* 不出现左右滑动条 */
 }
 /* 下拉展开时放开裁剪，保证浮层完整显示 */
 .main-sidebar .sidebar > ul#menu-switcher-root.menu-switch-open {
@@ -501,22 +503,30 @@
     justify-content: space-between;
     padding: 13px 15px 9px;
     margin-top: 2px;
-    color: #4b4b4b;
-    background: #f2f2f3;
+    color: #33608c;
+    background: #e9f2fb;
     font-size: 13px;
     font-weight: 700;
     letter-spacing: .3px;
     cursor: pointer;
     user-select: none;
-    border-top: 1px solid #e6e6e6;
+    border-top: 1px solid #d8e6f5;
+    overflow: hidden;                 /* 标题不撑出横向滚动条 */
+    white-space: nowrap;
 }
 .main-sidebar .sidebar-menu > li.menu-cat-header:first-child {
     border-top: 0;
     margin-top: 0;
 }
 .main-sidebar .sidebar-menu > li.menu-cat-header:hover {
-    color: #605ca8;
-    background: #ebebed;
+    color: #1f4c74;
+    background: #dbe9f8;
+}
+.main-sidebar .sidebar-menu > li.menu-cat-header .menu-cat-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .main-sidebar .sidebar-menu > li.menu-cat-header .menu-cat-title i {
     width: 16px;
@@ -524,11 +534,13 @@
     font-size: 13px;
 }
 .main-sidebar .sidebar-menu > li.menu-cat-header .menu-cat-toggle {
-    color: #9a9a9a;
+    flex: 0 0 auto;
+    margin-left: 10px;
+    color: #7fa3c6;
     font-size: 12px;
     width: 14px;
     text-align: center;
 }
 .main-sidebar .sidebar-menu > li.menu-cat-header:hover .menu-cat-toggle {
-    color: #605ca8;
+    color: #1f4c74;
 }
