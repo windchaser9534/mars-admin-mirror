@@ -1,8 +1,8 @@
 /* v2 侧边栏：三个大分类常驻，用 + / - 独立展开收起
-   - 默认：Online Menu 展开，Land-based / Kiosk 收起
    - 点击分类标题切换该分类；各分类互不影响
-   - 展开状态记入 localStorage，翻页后保持（停在当前页面所属分类并滚到该菜单项）
-   - 展开后自动滚动，让该分类的选项尽量完整展示
+   - 展开状态记入 localStorage，翻页后保持
+   - 展开后把该分类「定位」到可视区：整组放得下就整组露出，放不下就把分类标题顶到可视区顶部
+   - 翻页后把当前页面对应的菜单项滚到视野中间（停在选中项）
    - 该脚本紧跟菜单块同步执行，避免展开状态闪烁 */
 (function () {
     var root = document.getElementById('menu-switcher-root');
@@ -54,9 +54,19 @@
         try { window.localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {}
     }
 
-    /* 当前页面所属分类（菜单里有 li.active 的那一项所在的分组） */
+    /* 取「最内层」的当前菜单项：
+       treeview 的父级 li 也会带 active，直接取第一个会拿到整个分组，导致定位跑偏 */
+    function activeItem() {
+        var list = root.querySelectorAll('li.active');
+        if (!list.length) { return null; }
+        for (var i = 0; i < list.length; i++) {
+            if (!list[i].querySelector('li.active')) { return list[i]; }
+        }
+        return list[list.length - 1];
+    }
+
     function activeCat() {
-        var li = root.querySelector('li.active');
+        var li = activeItem();
         if (!li) { return null; }
         var el = li.parentNode;
         while (el && el !== root) {
@@ -68,62 +78,47 @@
         return null;
     }
 
-    /* 找出真正在滚动的容器：优先菜单 ul 自身，否则向上找 overflow-y:auto 的祖先 */
-    function scroller() {
-        if (root.scrollHeight - root.clientHeight > 2) { return root; }
-        var el = root.parentNode;
-        while (el && el !== document.body && el.nodeType === 1) {
-            var oy = window.getComputedStyle(el).overflowY;
-            if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight - el.clientHeight > 2) { return el; }
-            el = el.parentNode;
+    /* 原生滚动定位：浏览器自己决定该滚哪个容器（菜单 ul 或 main-sidebar），不用猜。
+       只滚侧边栏内部，滚完把整页的滚动位置还原，避免内容区跟着跳。 */
+    function scrollEl(el, block) {
+        if (!el || !el.scrollIntoView) { return; }
+        var wx = window.pageXOffset || 0;
+        var wy = window.pageYOffset || 0;
+        try {
+            el.scrollIntoView({ block: block, inline: 'nearest' });
+        } catch (e) {
+            el.scrollIntoView(block !== 'center');   // 老浏览器只支持布尔参数
         }
-        return root;
+        if ((window.pageYOffset || 0) !== wy || (window.pageXOffset || 0) !== wx) {
+            window.scrollTo(wx, wy);
+        }
     }
 
-    /* 展开后滚动，让该分类的选项尽量完整展示：
-       - 整组（标题 + 全部选项）能放进视野 → 标题对到容器顶部，全部可见
-       - 整组放不下 → 优先保证最下面那个选项完整露出（标题可被顶上去） */
-    function revealLast(cat) {
-        var ul = groupOf(cat);
+    /* 展开后把该分类定位到可视区：
+       - 整组（标题 + 全部选项）已完整可见 → 不动
+       - 否则把分类标题顶到可视区顶部：整组能放下就全露出，放不下也一定看到分类开头 */
+    function revealCat(cat) {
         var hd = headerOf(cat);
-        if (!ul || !ul.lastElementChild) { return; }
+        var ul = groupOf(cat);
+        if (!hd || !ul || !ul.lastElementChild) { return; }
 
-        var sc = scroller();
-        var view = sc.getBoundingClientRect();
+        var box = root.getBoundingClientRect();
+        var h = hd.getBoundingClientRect();
         var last = ul.lastElementChild.getBoundingClientRect();
-        var head = hd ? hd.getBoundingClientRect() : last;
+        var whole = (h.top >= box.top - 1) && (last.bottom <= box.bottom - 1);
+        if (whole) { return; }
 
-        var viewH = view.bottom - view.top;
-        var groupH = last.bottom - head.top;
-        var delta;
-
-        if (groupH <= viewH - 4) {
-            // 能整组放下：已在视野内就不动，否则标题对齐到顶部
-            var fits = head.top >= view.top && last.bottom <= view.bottom;
-            delta = fits ? 0 : (head.top - view.top);
-        } else {
-            // 放不下：按“最后一项底部贴住容器底部（留 8px）”滚动
-            delta = last.bottom - view.bottom + 8;
-            if (delta < 0) { delta = 0; }
-        }
-        if (delta === 0) { return; }
-
-        sc.scrollTop = sc.scrollTop + delta;
+        scrollEl(hd, 'start');
     }
 
-    /* 翻页后把当前页面对应的菜单项滚到视野内（尽量居中），即“停在选中分类” */
+    /* 翻页后把当前菜单项滚进视野（垂直居中） */
     function revealActive() {
-        var li = root.querySelector('li.active');
+        var li = activeItem();
         if (!li) { return; }
-        var sc = scroller();
-        var view = sc.getBoundingClientRect();
+        var box = root.getBoundingClientRect();
         var r = li.getBoundingClientRect();
-        var pad = 24;
-        if (r.top >= view.top + pad && r.bottom <= view.bottom - pad) { return; }  // 已经看得见
-        var center = (r.top + r.bottom) / 2 - (view.top + view.bottom) / 2;
-        var top = sc.scrollTop + center;
-        if (top < 0) { top = 0; }
-        sc.scrollTop = top;
+        if (r.top >= box.top + 12 && r.bottom <= box.bottom - 12) { return; }   // 已看得见
+        scrollEl(li, 'center');
     }
 
     function later(fn) {
@@ -146,7 +141,7 @@
         setOpen(cat, open);
         saveOpen();                       // 记住这次展开/收起
         if (!open) { return; }
-        later(function () { revealLast(cat); });
+        later(function () { revealCat(cat); });
     });
 
     /* ---- 初始化：恢复上次展开状态 + 强制展开当前页面所属分类 ---- */
@@ -155,13 +150,17 @@
     if (saved) {
         for (var i = 0; i < CATS.length; i++) { setOpen(CATS[i], saved.indexOf(CATS[i]) !== -1); }
     } else if (act) {
-        // 没有历史状态时，只展开当前页面所属的分类（而不是默认展开 Online）
         for (var j = 0; j < CATS.length; j++) { setOpen(CATS[j], CATS[j] === act); }
     } else {
         setOpen('online', true);
     }
-    if (act) { setOpen(act, true); }       // 当前页面在哪一类，哪一类必开
+    if (act) { setOpen(act, true); }
     if (!isOpen('online') && !isOpen('land') && !isOpen('kiosk')) { setOpen('online', true); }
 
+    /* 定位当前菜单项：解析时先对一次，布局稳定后再对一次，页面完全加载后再兜一次 */
+    try { revealActive(); } catch (e) {}
     later(revealActive);
+    if (window.addEventListener) {
+        window.addEventListener('load', function () { later(revealActive); });
+    }
 })();
